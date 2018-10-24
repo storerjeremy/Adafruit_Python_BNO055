@@ -173,12 +173,12 @@
           // Toe angles (+/-) are measured opposite on left right
           // If step is 1 we are looking at the left wheel
           if (currentStep === 1) {
-            var angle = calcAngleTranslation(parseFloat(step[0].value), parseFloat(step[currentStep].value));
+            var angle = calcAngleTranslation(parseFloat(steps[0].value), parseFloat(steps[currentStep].value));
             $('#left-wheel-alignment').text(angle * -1);
           }
           // if step is 2 we are looking at the right wheel
           else if (currentStep === 2) {
-            $('#right-wheel-alignment').text(calcAngleTranslation(parseFloat(step[0].value), parseFloat(step[currentStep].value)));
+            $('#right-wheel-alignment').text(calcAngleTranslation(parseFloat(steps[0].value), parseFloat(steps[currentStep].value)));
           }
           else {
             console.log('Not sure why this method is being called right now.');
