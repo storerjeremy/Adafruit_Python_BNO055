@@ -41,6 +41,7 @@ from Adafruit_BNO055 import BNO055
 # below 'bno = ...' lines is uncommented:
 # Raspberry Pi configuration with serial UART and RST connected to GPIO 18:
 # bno = BNO055.BNO055(serial_port='/dev/serial0', rst=18)
+
 bno = BNO055.BNO055()
 # BeagleBone Black configuration with default I2C connection (SCL=P9_19, SDA=P9_20),
 # and RST connected to pin P9_12:
@@ -145,7 +146,7 @@ def start_bno_thread():
     #   http://stackoverflow.com/questions/24617795/starting-thread-while-running-flask-with-debug
     global bno_thread
     # Initialize BNO055 sensor.
-    if not bno.begin():
+    if not bno.begin(BNO055.OPERATION_MODE_IMUPLUS):
         raise RuntimeError('Failed to initialize BNO055!')
     bno.set_axis_remap(**BNO_AXIS_REMAP)
     # Kick off BNO055 reading thread.
