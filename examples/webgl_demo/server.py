@@ -155,7 +155,7 @@ def start_bno_thread():
     # Initialize BNO055 sensor.
     if not bno.begin(BNO055.OPERATION_MODE_IMUPLUS):
         raise RuntimeError('Failed to initialize BNO055!')
-    bno.set_axis_remap(**BNO_AXIS_REMAP)
+    # bno.set_axis_remap(**BNO_AXIS_REMAP)
     # Kick off BNO055 reading thread.
     bno_thread = threading.Thread(target=read_bno)
     bno_thread.daemon = True  # Don't let the BNO reading thread block exiting.
