@@ -31,6 +31,7 @@ import json
 import logging
 import threading
 import time
+import math
 
 from flask import *
 
@@ -137,10 +138,16 @@ def bno_sse():
             temp = bno_data['temp']
             x, y, z, w = bno_data['quaternion']
             sys, gyro, accel, mag = bno_data['calibration']
+            # caculate euler from quaternion  - https://sanjosetech.blogspot.com/2016/10/bno055-quaternion-to-euler.html
+            #  euler[0] is pitch, euler[1] is roll, and euler[2]-   q[0] is w, q[1] is x, q[2] is y, and q[3] is z.
+            quat_pitch = -math.atan2(2 * x * z + 2 * y * w, 1 - 2 * x * x - 2 * y * y) * 180 / math.pi;
+            quat_roll = math.asin(2 * y * z - 2 * x * w) * 180 / pi;
+            quat_heading = -math.atan2(2 * x * y + 2 * z * w, 1 - 2 * y * y - 2 * z * z) * 180 / pi;
         # Send the data to the connected client in HTML5 server sent event format.
         data = {'heading': heading, 'roll': roll, 'pitch': pitch, 'temp': temp,
                 'quatX': x, 'quatY': y, 'quatZ': z, 'quatW': w,
-                'calSys': sys, 'calGyro': gyro, 'calAccel': accel, 'calMag': mag }
+                'calSys': sys, 'calGyro': gyro, 'calAccel': accel, 'calMag': mag,
+                'quatPitch': quat_pitch, 'quatRoll': quat_roll, 'quatHeading': quat_heading }
         yield 'data: {0}\n\n'.format(json.dumps(data))
 
 
