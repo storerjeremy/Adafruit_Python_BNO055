@@ -148,7 +148,7 @@ def bno_sse():
         data = {'heading': heading, 'roll': roll, 'pitch': pitch, 'temp': temp,
                 'quatX': x, 'quatY': y, 'quatZ': z, 'quatW': w,
                 'calSys': sys, 'calGyro': gyro, 'calAccel': accel, 'calMag': mag,
-                'quatPitch': quat_pitch, 'quatRoll': quat_roll, 'quatHeading': quat_heading }
+                'quatPitch': round(quat_pitch, 3), 'quatRoll': round(quat_roll, 3), 'quatHeading': round(quat_heading, 3) }
         yield 'data: {0}\n\n'.format(json.dumps(data))
 
 
