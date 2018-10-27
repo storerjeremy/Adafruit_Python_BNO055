@@ -143,6 +143,7 @@ def bno_sse():
             quat_pitch = -math.atan2(2 * x * z + 2 * y * w, 1 - 2 * x * x - 2 * y * y) * 180 / math.pi;
             quat_roll = math.asin(2 * y * z - 2 * x * w) * 180 / math.pi;
             quat_heading = -math.atan2(2 * x * y + 2 * z * w, 1 - 2 * y * y - 2 * z * z) * 180 / math.pi;
+            quat_heading = (quat_heading + 360) % 360
         # Send the data to the connected client in HTML5 server sent event format.
         data = {'heading': heading, 'roll': roll, 'pitch': pitch, 'temp': temp,
                 'quatX': x, 'quatY': y, 'quatZ': z, 'quatW': w,
