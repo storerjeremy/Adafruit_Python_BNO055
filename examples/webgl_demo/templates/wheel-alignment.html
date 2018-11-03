@@ -227,7 +227,7 @@ $(document).ready(function() {
     var angleTwo = calcAngleTranslation(parseFloat(valThree), parseFloat(valFour));
     var averageAngle = (angleOne + angleTwo) / 2;
     if (left) {
-      averageAngle = (averageAngle * -1).toFixed(2);
+      averageAngle = averageAngle * -1;
     }
     var confidence = calculateConfidence(angleOne, angleTwo);
 
