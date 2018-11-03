@@ -215,7 +215,7 @@ $(document).ready(function() {
   }
 
   function calculateConfidence(valOne, valTwo) {
-    return Math.abs((((valOne - valTwo) / 360 ) * 100) - 100).toFixed(0);
+    return (Math.abs(((valOne - valTwo) / 360 ) * 100) - 100).toFixed(0);
   }
 
   function calculateToe(valOne, valTwo, valThree, valFour, left=false) {
