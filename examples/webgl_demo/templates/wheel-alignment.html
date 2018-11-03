@@ -186,36 +186,40 @@ $(document).ready(function() {
 
     // Right Rear
     if (steps[0].value && steps[1].value && steps[2].value && steps[3].value) {
-      $('#right-rear-result').text(calculateToe(steps[0].value, steps[1].value, steps[2].value, steps[3].value) + '°');
-      $('#right-rear-confidence').text('Confidence ' + calculateConfidence(steps[1].value, steps[3].value) + '%');
+      var result = calculateToe(steps[0].value, steps[1].value, steps[2].value, steps[3].value);
+      $('#right-rear-result').text(result[0] + '°');
+      $('#right-rear-confidence').text('Confidence ' + result[1] + '%');
     } else {
       $('#right-rear-result').text('Skipped');
     }
     // Right Front
     if (steps[4].value && steps[5].value && steps[6].value && steps[7].value) {
-      $('#right-front-result').text(calculateToe(steps[4].value, steps[5].value, steps[6].value, steps[7].value) + '°');
-      $('#right-front-confidence').text('Confidence ' + calculateConfidence(steps[5].value, steps[7].value) + '%');
+      var result = calculateToe(steps[4].value, steps[5].value, steps[6].value, steps[7].value);
+      $('#right-front-result').text(result[0] + '°');
+      $('#right-front-confidence').text('Confidence ' + result[1] + '%');
     } else {
       $('#right-front-result').text('Skipped');
     }
     // Left Rear
     if (steps[8].value && steps[9].value && steps[10].value && steps[11].value) {
-      $('#left-rear-result').text(calculateToe(steps[8].value, steps[9].value, steps[10].value, steps[11].value, true) + '°');
-      $('#left-rear-confidence').text('Confidence ' + calculateConfidence(steps[9].value, steps[11].value) + '%');
+      var result = calculateToe(steps[8].value, steps[9].value, steps[10].value, steps[11].value, true);
+      $('#left-rear-result').text(result[0] + '°');
+      $('#left-rear-confidence').text('Confidence ' + result[1] + '%');
     } else {
       $('#left-rear-result').text('Skipped');
     }
     // Left Front
     if (steps[12].value && steps[13].value && steps[14].value && steps[15].value) {
-      $('#left-front-result').text(calculateToe(steps[12].value, steps[13].value, steps[14].value, steps[15].value, true) + '°');
-      $('#left-front-confidence').text('Confidence ' + calculateConfidence(steps[13].value, steps[15].value) + '%');
+      var result = calculateToe(steps[12].value, steps[13].value, steps[14].value, steps[15].value, true);
+      $('#left-front-result').text(result[0] + '°');
+      $('#left-front-confidence').text('Confidence ' + result[1] + '%');
     } else {
       $('#left-front-result').text('Skipped');
     }
   }
 
   function calculateConfidence(valOne, valTwo) {
-    return (Math.abs(((valOne - valTwo) / 360 ) * 100) - 100).toFixed(0);
+    return (100 - ((Math.abs(valOne - valTwo) / 360) * 100)).toFixed(0);
   }
 
   function calculateToe(valOne, valTwo, valThree, valFour, left=false) {
@@ -225,7 +229,9 @@ $(document).ready(function() {
     if (left) {
       return (averageAngle * -1).toFixed(2);
     }
-    return averageAngle.toFixed(2);
+    var confidence = calculateConfidence(angleOne, angleTwo);
+
+    return [averageAngle.toFixed(2), confidence];
   }
 
   // Function to calculate alignment
