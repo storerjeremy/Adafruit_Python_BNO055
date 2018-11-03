@@ -59,10 +59,6 @@
             <h4>Heading = <span id="heading">0</span></h4>
             <h4>Roll = <span id="roll">0</span></h4>
             <h4>Pitch = <span id="pitch">0</span></h4>
-            <h3>Quat Orientation (degrees):</h3>
-            <h4>Heading = <span id="quat-heading">0</span></h4>
-            <h4>Roll = <span id="quat-roll">0</span></h4>
-            <h4>Pitch = <span id="quat-pitch">0</span></h4>
           </div>
           <div class="col-sm-4">
             <h3>Calibration:</h3>
@@ -235,9 +231,6 @@
           $('#heading').text(data.heading);
           $('#roll').text(data.roll);
           $('#pitch').text(data.pitch);
-          $('#quat-heading').text(data.quatHeading);
-          $('#quat-roll').text(data.quatRoll);
-          $('#quat-pitch').text(data.quatPitch);
           $('#calSys').text(data.calSys);
           $('#calGyro').text(data.calGyro);
           $('#calAccel').text(data.calAccel);
