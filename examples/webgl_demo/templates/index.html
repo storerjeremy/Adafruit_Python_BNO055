@@ -6,7 +6,7 @@
     <head>
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-        <title>Wheel Alignment Tool</title>
+        <title>Adafruit BNO055 Absolute Orientation Sensor</title>
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -28,31 +28,14 @@
             <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
         <![endif]-->
       <div class="container">
-
         <div class="row">
           <div class="col-sm-12">
-            <h1 class="text-center">Wheel Alignment Tool</h1>
-            <p>NOTE: Left and right are determined as if you were sitting in the car looking toward the front.</p>
+            <h1 class="text-center">Adafruit BNO055 Absolute Orientation Sensor Demo</h1>
             <h3 id="connecting">Connecting...</h3>
-            <h3 id="reading-title" class="readings"></h3>
-            <p id="reading-instruction" class="readings"></p>
+            <div class="col-sm-12" id="renderer">
+            </div>
           </div>
         </div>
-
-        <div class="row">
-          <div class="col-sm-4 offset-md-2 readings">
-            <h3>Readings:</h3>
-            <h4>Car Body = <span id="car-body"></span></h4>
-            <h4>Left Wheel = <span id="left-wheel"></span></h4>
-            <h4>Right Wheel = <span id="right-wheel"></span></h4>
-          </div>
-          <div class="col-sm-4 readings">
-            <h3>Alignment:</h3>
-            <h4>Left Wheel = <span id="left-wheel-alignment"></span></h4>
-            <h4>Right Wheel = <span id="right-wheel-alignment"></span></h4>
-          </div>
-        </div>
-
         <div class="row" id="controls">
           <div class="col-sm-4">
             <h3>Orientation (degrees):</h3>
@@ -72,10 +55,12 @@
             <h3>Actions:</h3>
             <form>
               <div class="form-group">
-                <button type="button" class="btn btn-primary" id="take-reading">Take Reading</button>
+                <label for="model">Model:
+                <select class="form-control" id="model">
+                </select>
               </div>
               <div class="form-group">
-                <button type="button" class="btn btn-primary" id="reset">Reset</button>
+                <button type="button" class="btn btn-primary" id="straighten">Straighten</button>
               </div>
               <div class="form-group">
                 <button type="button" class="btn btn-primary" id="saveCalibration">Save Calibration</button>
@@ -97,65 +82,166 @@
       <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
       <script>
       $(document).ready(function() {
+        // Configuration
+        // Set size of the WebGL renderer scene.
+        var sceneWidth = 640;
+        var sceneHeight = 480;
+        // Define list of 3D models.  Each item should have a name property that
+        // will be rendered in the drop down, and a load function that is called
+        // with the model instance and should add a model property with a Three.js
+        // scene graph object that will be rendered.
+        var models = [
+          {
+            name: 'Bunny',
+            load: function(model) {
+              objMTLLoader.load(
+                '{{ url_for('static', filename='bunny.obj') }}',
+                '{{ url_for('static', filename='bunny.mtl') }}',
+                function(object) {
+                  var geom = object.children[1].geometry;
+                  // Rebuild geometry normals because they aren't loaded properly.
+                  geom.computeFaceNormals();
+                  geom.computeVertexNormals();
+                  // Build bunny mesh from geometry and material.
+                  model.model = new THREE.Mesh(geom, material);
+                  // Move the bunny so it's roughly in the center of the screen.
+                  model.model.position.y = -4;
+                }
+              );
+            }
+          },
+          {
+            name: 'Cat Statue',
+            load: function(model) {
+              stlLoader.load(
+                '{{ url_for('static', filename='cat-top.stl') }}',
+                function(geometry) {
+                  // Regenerate normals because they aren't loaded properly.
+                  geometry.computeFaceNormals();
+                  geometry.computeVertexNormals();
+                  // Load the model and build mesh.
+                  model.model = new THREE.Mesh(geometry, material);
+                  // Rotate, scale, and move so the cat is facing out the screen.
+                  model.model.rotation.x = -90 * (Math.PI / 180.0);
+                  model.model.scale.set(0.15, 0.15, 0.15);
+                  model.model.position.y = -4;
+                }
+              );
+            }
+          },
+          {
+            name: 'XYZ Axes',
+            load: function(model) {
+              // Build some cylinders and rotate them to form a cross of the XYZ axes.
+              model.model = new THREE.Group();
+              var xAxis = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 7, 32, 32),
+                                             material);
+              xAxis.rotation.z = 90.0*(Math.PI/180.0);
+              model.model.add(xAxis);
+              var yAxis = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 7, 32, 32),
+                                             material);
+              model.model.add(yAxis);
+              var zAxis = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 7, 32, 32),
+                                             material);
+              zAxis.rotation.x = 90.0*(Math.PI/180.0);
+              model.model.add(zAxis);
+            }
+          }
+        ];
 
         // Global state.
         var bnoData = null;
-        var currentStep = 0;
-        var steps = [
-          {title: 'Car Body Reading', value: null, helpText: 'Take a reading of the car body', element: $('#car-body')},
-          {title: 'Left Wheel Reading', value: null, helpText: 'Take a reading of the left wheel', element: $('#left-wheel')},
-          {title: 'Right Wheel Reading', value: null, helpText: 'Take a reading of the right wheel', element: $('#right-wheel')}
-        ];
+        var offset = null;
+        var orientation = null;
+        var objMTLLoader = new THREE.OBJMTLLoader();
+        var stlLoader = new THREE.STLLoader();
+        var currentModel = null;
 
         // Start with main controls hidden until connected.
         $('#controls').hide();
-        // Start with readings hidden until connected.
-        $('.readings').hide();
 
-        // Take reading button click handler.
-        $('#take-reading').click(function() {
-          // Store the current value and display
-          steps[currentStep].value = bnoData.heading;
-          steps[currentStep].element.text(steps[currentStep].value);
+        // Setup Three.js scene and camera.
+        var scene = new THREE.Scene();
+        var camera = new THREE.PerspectiveCamera(75, sceneWidth / sceneHeight, 0.1, 1000);
+        // Start with the camera moved back a bit to look directly at the origin.
+        camera.position.z = 10;
 
-          // Check what step it is
-          if (currentStep === 2) {
-            // Disable take reading button
-            $('#take-reading').prop('disabled', true);
-            // Calculate alignment
-            calculateAlignment();
-            // Set text to reset stuff
-            $('#reading-title').text('Reset to measure again');
-            $('#reading-instruction').text('');
-          } else if (currentStep === 1) {
-            // Calculate alignment
-            calculateAlignment();
-            currentStep++;
-            displayReadingInfo();
-          } else if (currentStep === 0){
-            currentStep++;
-            displayReadingInfo();
+        // Setup Three.js WebGL renderer and add it to the page.
+        var renderer = new THREE.WebGLRenderer();
+        renderer.setSize(sceneWidth, sceneHeight);
+        renderer.setClearColor(0xff0000, 0);
+        $('#renderer').append(renderer.domElement);
+        $('#renderer canvas').addClass('center-block');  // Center the renderer.
+
+        // Create white material for the models.
+        var material = new THREE.MeshPhongMaterial({ color: 0xffffff });
+
+        // Setup 3 point lighting with a red and blue point light in upper left
+        // and right corners, plus a bit of backlight from the rear forward.
+        var pointLight1 = new THREE.PointLight(0xffbbbb, 0.6);
+        pointLight1.position.set(40, 15, 40);
+        scene.add(pointLight1);
+        var pointLight2 = new THREE.PointLight(0xbbbbff, 0.6);
+        pointLight2.position.set(-40, 15, 40);
+        scene.add(pointLight2);
+        var backLight = new THREE.DirectionalLight(0xffff, 0.3);
+        backLight.position.set(0, -0.25, -1);
+        scene.add(backLight);
+
+        // Create a couple groups to apply rotations to the 3D model at different
+        // stages.  The outer group called offset is set to the reverse rotation
+        // of the current BNO orientation when the 'Straighten' button is clicked.
+        // This will force the model to center itself staring directly out of
+        // the screen.  The inner group called orientation will be rotated with
+        // the current BNO sensor orientation and cause the model to rotate.
+        offset = new THREE.Group();
+        orientation = new THREE.Group();
+        offset.add(orientation);
+        scene.add(offset);
+
+        // Main rendering function.
+        function render() {
+          requestAnimationFrame(render);
+          // Switch to the first model once it's loaded.
+          if (currentModel === null) {
+            if (models[0].hasOwnProperty('model')) {
+              currentModel = 0;
+              orientation.add(models[0].model);
+            }
           }
+          // Update the orientation with the last BNO sensor reading quaternion.
+          if (bnoData !== null) {
+           orientation.quaternion.set(bnoData.quatX, bnoData.quatY, bnoData.quatZ, bnoData.quatW);
+          }
+          renderer.render(scene, camera);
+        }
+        render();
+
+        // Populate drop-down of 3D models and load all the models..
+        $.each(models, function(index, model) {
+          // Populate drop-down.
+          $('#model').append($("<option />").val(index).text(model.name));
+          // Kick off loading the model.
+          model.load(model);
         });
 
-        // Reset button click handler.
-        $('#reset').click(function() {
-          // Reset current step back to 0
-          currentStep = 0;
-          // Render title/instruction
-          displayReadingInfo();
-          // Reset reading values
-          $('#car-body').text('');
-          $('#left-wheel').text('');
-          $('#right-wheel').text('');
-          $('#left-wheel-alignment').text('');
-          $('#right-wheel-alignment').text('');
-          // Reset values
-          steps[0].value = null;
-          steps[1].value = null;
-          steps[2].value = null;
-          // Enable take reading button
-          $('#take-reading').prop('disabled', false);
+        // Model list changed event.
+        $('#model').change(function() {
+          // Remove the old model.
+          orientation.remove(models[currentModel].model);
+          // Update the current model and add it to the scene.
+          currentModel = $('#model')[0].selectedIndex;
+          orientation.add(models[currentModel].model);
+        });
+
+        // Straighten button click handler.
+        $('#straighten').click(function() {
+          // Get the current orientation of the BNO sensor and compute its
+          // conjugate or reverse rotation and apply it to the offset group.
+          // This will reset the 3D model so that it faces directly forward based
+          // on the current BNO sensor orientation.
+          var currentQuat = new THREE.Quaternion(bnoData.quatX, bnoData.quatY, bnoData.quatZ, bnoData.quatW);
+          offset.quaternion.copy(currentQuat.conjugate());
         });
 
         // Save calibration click handler calls the /save_calibration API.
@@ -167,62 +253,6 @@
         $('#loadCalibration').click(function() {
           $.post("{{ url_for('load_calibration') }}");
         });
-
-        // Function to calculate alignment
-        function calculateAlignment() {
-          // Toe angles (+/-) are measured opposite on left right
-          // If step is 1 we are looking at the left wheel
-          if (currentStep === 1) {
-            var angle = calcAngleTranslation(parseFloat(steps[0].value), parseFloat(steps[currentStep].value));
-            $('#left-wheel-alignment').text(angle * -1);
-          }
-          // if step is 2 we are looking at the right wheel
-          else if (currentStep === 2) {
-            $('#right-wheel-alignment').text(calcAngleTranslation(parseFloat(steps[0].value), parseFloat(steps[currentStep].value)));
-          }
-          else {
-            console.log('Not sure why this method is being called right now.');
-          }
-        }
-
-        // Function to calculate the relative angle translation clockwise/counter of two angles
-        // Clockwise being a positive translation and negative being a counter clockwise translation
-        function calcAngleTranslation(a, b) {
-          if (a === b) {
-              return 0;
-          }
-
-          var diff = b - a;
-          var abs_diff = Math.abs(diff);
-
-          if (abs_diff === 180) {
-            return abs_diff;
-          }
-          else if (abs_diff <= 180) {
-            return diff;
-          }
-          else if (b > a) {
-            return abs_diff - 360;
-          }
-          else {
-            return 360 - abs_diff;
-          }
-        }
-
-        // Function to calculate the closest diff of two angles
-        function closestAngleDiff(a, b) {
-          var phi = Math.abs((b - a)) % 360;
-          if (phi > 180) {
-            return 360 - phi;
-          }
-          return phi;
-        }
-
-        // Function to handle display of reading data
-        function displayReadingInfo() {
-          $('#reading-title').text(steps[currentStep].title);
-          $('#reading-instruction').text(steps[currentStep].helpText);
-        }
 
         // Function called when a new sensor reading is received.
         function updateSensorData(data) {
@@ -248,13 +278,10 @@
           // Hide connecting status and show controls when connection is made.
           $('#connecting').hide();
           $('#controls').show();
-          $('.readings').show();
-          displayReadingInfo();
         };
         server.onerror = function(e) {
           // Hide controls and show connecting status if connection closes.
           $('#controls').hide();
-          $('.readings').hide();
           $('#connecting').show();
         };
       });

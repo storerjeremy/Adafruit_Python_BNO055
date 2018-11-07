@@ -31,7 +31,6 @@ import json
 import logging
 import threading
 import time
-import math
 
 from flask import *
 
@@ -41,11 +40,7 @@ from Adafruit_BNO055 import BNO055
 # Create and configure the BNO sensor connection.  Make sure only ONE of the
 # below 'bno = ...' lines is uncommented:
 # Raspberry Pi configuration with serial UART and RST connected to GPIO 18:
-# bno = BNO055.BNO055(serial_port='/dev/serial0', rst=18)
-
-# Todo Uncomment for prod
-bno = BNO055.BNO055()
-
+bno = BNO055.BNO055(serial_port='/dev/serial0', rst=18)
 # BeagleBone Black configuration with default I2C connection (SCL=P9_19, SDA=P9_20),
 # and RST connected to pin P9_12:
 #bno = BNO055.BNO055(rst='P9_12')
@@ -63,16 +58,9 @@ CALIBRATION_FILE = 'calibration.json'
 # function.  Don't change these without consulting section 3.4 of the datasheet.
 # The default axes mapping below assumes the Adafruit BNO055 breakout is flat on
 # a table with the row of SDA, SCL, GND, VIN, etc pins facing away from you.
-# BNO_AXIS_REMAP = { 'x': BNO055.AXIS_REMAP_X,
-#                    'y': BNO055.AXIS_REMAP_Z,
-#                    'z': BNO055.AXIS_REMAP_Y,
-#                    'x_sign': BNO055.AXIS_REMAP_POSITIVE,
-#                    'y_sign': BNO055.AXIS_REMAP_POSITIVE,
-#                    'z_sign': BNO055.AXIS_REMAP_NEGATIVE }
-
 BNO_AXIS_REMAP = { 'x': BNO055.AXIS_REMAP_X,
-                   'y': BNO055.AXIS_REMAP_Y,
-                   'z': BNO055.AXIS_REMAP_Z,
+                   'y': BNO055.AXIS_REMAP_Z,
+                   'z': BNO055.AXIS_REMAP_Y,
                    'x_sign': BNO055.AXIS_REMAP_POSITIVE,
                    'y_sign': BNO055.AXIS_REMAP_POSITIVE,
                    'z_sign': BNO055.AXIS_REMAP_NEGATIVE }
@@ -120,7 +108,6 @@ def read_bno():
         # Sleep until the next reading.
         time.sleep(1.0/BNO_UPDATE_FREQUENCY_HZ)
 
-
 def bno_sse():
     """Function to handle sending BNO055 sensor data to the client web browser
     using HTML5 server sent events (aka server push).  This is a generator function
@@ -141,20 +128,13 @@ def bno_sse():
             temp = bno_data['temp']
             x, y, z, w = bno_data['quaternion']
             sys, gyro, accel, mag = bno_data['calibration']
-            # caculate euler from quaternion  - https://sanjosetech.blogspot.com/2016/10/bno055-quaternion-to-euler.html
-            #  euler[0] is pitch, euler[1] is roll, and euler[2]-   q[0] is w, q[1] is x, q[2] is y, and q[3] is z.
-            # quat_roll = -math.atan2(2 * x * z + 2 * y * w, 1 - 2 * x * x - 2 * y * y) * 180 / math.pi;
-            # quat_pitch = math.asin(2 * y * z - 2 * x * w) * 180 / math.pi;
-            # quat_heading = -math.atan2(2 * x * y + 2 * z * w, 1 - 2 * y * y - 2 * z * z) * 180 / math.pi;
-            # quat_heading = (quat_heading + 360) % 360
         # Send the data to the connected client in HTML5 server sent event format.
         data = {'heading': heading, 'roll': roll, 'pitch': pitch, 'temp': temp,
                 'quatX': x, 'quatY': y, 'quatZ': z, 'quatW': w,
-                'calSys': sys, 'calGyro': gyro, 'calAccel': accel, 'calMag': mag,}
-                # 'quatPitch': round(quat_pitch, 3), 'quatRoll': round(quat_roll, 3), 'quatHeading': round(quat_heading, 3) }
+                'calSys': sys, 'calGyro': gyro, 'calAccel': accel, 'calMag': mag }
         yield 'data: {0}\n\n'.format(json.dumps(data))
 
-# Todo Uncomment for prod
+
 @app.before_first_request
 def start_bno_thread():
     # Start the BNO thread right before the first request is served.  This is
@@ -164,21 +144,19 @@ def start_bno_thread():
     #   http://stackoverflow.com/questions/24617795/starting-thread-while-running-flask-with-debug
     global bno_thread
     # Initialize BNO055 sensor.
-    if not bno.begin(BNO055.OPERATION_MODE_IMUPLUS):
+    if not bno.begin():
         raise RuntimeError('Failed to initialize BNO055!')
-    # bno.set_axis_remap(**BNO_AXIS_REMAP)
+    bno.set_axis_remap(**BNO_AXIS_REMAP)
     # Kick off BNO055 reading thread.
     bno_thread = threading.Thread(target=read_bno)
     bno_thread.daemon = True  # Don't let the BNO reading thread block exiting.
     bno_thread.start()
-
 
 @app.route('/bno')
 def bno_path():
     # Return SSE response and call bno_sse function to stream sensor data to
     # the webpage.
     return Response(bno_sse(), mimetype='text/event-stream')
-
 
 @app.route('/save_calibration', methods=['POST'])
 def save_calibration():
@@ -192,7 +170,6 @@ def save_calibration():
         json.dump(data, cal_file)
     return 'OK'
 
-
 @app.route('/load_calibration', methods=['POST'])
 def load_calibration():
     # Load calibration from disk.
@@ -203,15 +180,9 @@ def load_calibration():
         bno.set_calibration(data)
     return 'OK'
 
-
-@app.route('/wheel-alignment')
-def wheel_alignment():
-    return render_template('wheel-alignment.html')
-
-
 @app.route('/')
-def home():
-    return render_template('home.html')
+def root():
+    return render_template('index.html')
 
 
 if __name__ == '__main__':
